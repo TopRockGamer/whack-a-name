@@ -17,13 +17,21 @@ import {
 type Mole = {
   holeIndex: number
   root: Phaser.GameObjects.Container
+  body: Phaser.GameObjects.Image
   face: Phaser.GameObjects.Image
+  hat: Phaser.GameObjects.Image
   hitbox: Phaser.GameObjects.Zone
   maskGfx: Phaser.GameObjects.Graphics
   alive: boolean
   upTween?: Phaser.Tweens.Tween
 }
 
+/**
+ * Architecture: each mole is a Phaser Container character stack
+ *   [mole_body | face decal | party hat]
+ * that rises as one unit through a hole geometry mask.
+ * Motion = body emerging from the hole, not a face PNG sliding over a plate.
+ */
 export class PlayScene extends Phaser.Scene {
   private score = 0
   private hits = 0
@@ -52,10 +60,16 @@ export class PlayScene extends Phaser.Scene {
     this.moles = HOLES.map(() => null)
     this.occupied.clear()
 
-    // ChatGPT: backdrop first, fixed full-bleed
     this.add.image(640, 360, 'backdrop').setDisplaySize(1280, 720).setDepth(0)
 
-    // Banner — ChatGPT: ~(640,105), ~650px wide, clean crop
+    // Dark hole wells behind moles — reads as coming up out of the dirt
+    HOLES.forEach((hole, i) => {
+      const maskDef = HOLE_MASK[hole.row]
+      const g = this.add.graphics().setDepth(5 + i)
+      g.fillStyle(0x1a0e08, 0.92)
+      g.fillEllipse(hole.x, hole.y, maskDef.w * hole.scale * 0.98, maskDef.h * hole.scale * 0.95)
+    })
+
     const banner = this.add.image(640, 105, 'banner').setDepth(50)
     banner.setDisplaySize(650, Math.round(650 * (banner.height / Math.max(banner.width, 1))))
     this.add
@@ -119,20 +133,20 @@ export class PlayScene extends Phaser.Scene {
     })
 
     if (isPoseMode()) {
-      // Hold every hole populated for placement screenshots
       this.timeLeft = 999
       this.timerText.setText('POSE')
       HOLES.forEach((_, i) => this.spawnMoleAt(i, true))
-      // Expose live transforms for Playwright QA
-      this.time.delayedCall(100, () => {
+      this.time.delayedCall(120, () => {
         const dump = this.moles.map((m, i) => {
           if (!m) return null
           return {
             i,
             hole: HOLES[i],
             root: { x: m.root.x, y: m.root.y, scaleY: m.root.scaleY },
+            body: { w: m.body.displayWidth, h: m.body.displayHeight },
             face: { w: m.face.displayWidth, h: m.face.displayHeight },
-            bakedHat: true,
+            hat: { w: m.hat.displayWidth, h: m.hat.displayHeight },
+            architecture: 'container[body+face+hat] + hole geometry mask',
           }
         })
         ;(window as unknown as { __POSE_DUMP__: unknown }).__POSE_DUMP__ = dump
@@ -141,6 +155,7 @@ export class PlayScene extends Phaser.Scene {
     } else {
       this.scheduleSpawn(500)
     }
+
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (this.mallet.alpha > 0.2) {
         this.mallet.setPosition(p.x + 40, p.y - 20)
@@ -172,45 +187,89 @@ export class PlayScene extends Phaser.Scene {
     this.occupied.add(holeIndex)
 
     const faceKey = FACE_KEYS[holeIndex % FACE_KEYS.length]
-    const facePx = layout.facePx
-    // Hats are baked onto face PNGs (scripts/bake_hats_on_faces.py).
-    // origin ~0.5: hat sits in the top of the circle, person fills the hole.
+    const bodyH = layout.bodyH * hole.scale
+    const bodyW = bodyH * (256 / 320)
+    const facePx = layout.facePx * hole.scale
+    const hatW = layout.hatW * hole.scale
+
+    // --- Character stack (local coords; body origin = bottom centre) ---
+    const body = this.add
+      .image(0, 0, 'mole_body')
+      .setOrigin(0.5, 1)
+      .setDisplaySize(bodyW, bodyH)
+
+    // Head centre on the body PNG (~y=70 of 320 from top) — face covers the sphere
+    const headY = -bodyH * (1 - layout.headFromTop)
     const face = this.add
-      .image(0, 0, faceKey)
+      .image(0, headY - facePx * 0.06, faceKey)
       .setOrigin(0.5, 0.5)
       .setDisplaySize(facePx, facePx)
 
-    // Clip to painted hole void (baked hat is inside the face circle)
+    // Hat child of same container — brim nests into the face-crop crown
+    const hat = this.add
+      .image(2, headY - facePx * 0.52, 'party_hat')
+      .setOrigin(0.5, 0.92)
+      .setDisplaySize(hatW, hatW * 1.22)
+      .setAngle(-8)
+
+    // Hole mask clips the whole character as it rises out of the dirt
     const maskDef = HOLE_MASK[hole.row]
     const maskW = maskDef.w * hole.scale
     const maskH = maskDef.h * hole.scale
-    // add:false — mask graphics must not appear on the display list.
-    const maskGfx = this.make.graphics({ x: 0, y: 0, add: false })
+    // Second arg false = do not add mask graphics to the display list
+    const maskGfx = this.make.graphics({ x: 0, y: 0 }, false)
     maskGfx.fillStyle(0xffffff)
     maskGfx.fillEllipse(hole.x, hole.y, maskW, maskH)
-    face.setMask(maskGfx.createGeometryMask())
+    const geomMask = maskGfx.createGeometryMask()
 
-    const startY = hold ? hole.y + layout.visibleY : hole.y + layout.hiddenY
-    const root = this.add.container(hole.x, startY, [face]).setDepth(12 + holeIndex)
-    if (!hold) root.setScale(1, 0.25)
+    const root = this.add.container(hole.x, 0, [body, face, hat]).setDepth(12 + holeIndex)
+    root.setMask(geomMask)
+
+    // Body origin at hole floor: hidden = sunk below mask; visible = risen into view
+    const hiddenY = hole.y + layout.hideDown
+    const visibleY = hole.y + layout.popUp
+    root.y = hold ? visibleY : hiddenY
+    if (!hold) {
+      // Squash as if compressed underground, then spring up
+      root.setScale(1.05, 0.35)
+    }
 
     const hitbox = this.add
-      .zone(hole.x, hole.y - 8, 130 * hole.scale, 100 * hole.scale)
+      .zone(hole.x, hole.y - 10, 140 * hole.scale, 110 * hole.scale)
       .setDepth(30 + holeIndex)
       .setInteractive({ useHandCursor: true })
 
-    const mole: Mole = { holeIndex, root, face, hitbox, maskGfx, alive: true }
+    const mole: Mole = {
+      holeIndex,
+      root,
+      body,
+      face,
+      hat,
+      hitbox,
+      maskGfx,
+      alive: true,
+    }
     this.moles[holeIndex] = mole
 
     if (!hold) {
       const upMs = Phaser.Math.Between(MIN_UP_MS, MAX_UP_MS)
+      // Physical pop: whole body emerges through the hole
       mole.upTween = this.tweens.add({
         targets: root,
-        y: hole.y + layout.visibleY,
+        y: visibleY,
+        scaleX: 1,
         scaleY: 1,
-        duration: 180,
+        duration: 260,
         ease: 'Back.easeOut',
         onComplete: () => {
+          // Tiny settle bounce — reads as weight
+          this.tweens.add({
+            targets: root,
+            scaleY: 0.94,
+            duration: 70,
+            yoyo: true,
+            ease: 'Sine.easeInOut',
+          })
           this.time.delayedCall(upMs, () => {
             if (!mole.alive) return
             this.escapeMole(mole)
@@ -235,16 +294,20 @@ export class PlayScene extends Phaser.Scene {
 
     this.swingMallet(pointer.x, pointer.y)
 
+    // Squash the whole character into the hole
     this.tweens.add({
       targets: mole.root,
-      scaleX: 1.12,
-      scaleY: 0.55,
+      scaleX: 1.15,
+      scaleY: 0.45,
       duration: 90,
       yoyo: true,
     })
 
     if (this.textures.exists('star_burst')) {
-      const star = this.add.image(mole.root.x, mole.root.y - 36, 'star_burst').setScale(0.35).setDepth(90)
+      const star = this.add
+        .image(mole.root.x, mole.root.y - mole.body.displayHeight * 0.7, 'star_burst')
+        .setScale(0.35)
+        .setDepth(90)
       this.tweens.add({
         targets: star,
         alpha: 0,
@@ -254,11 +317,13 @@ export class PlayScene extends Phaser.Scene {
       })
     }
 
+    const hole = HOLES[mole.holeIndex]
+    const layout = ROW_LAYOUT[hole.row]
     this.tweens.add({
       targets: mole.root,
-      y: mole.root.y + 70,
+      y: hole.y + layout.hideDown,
       alpha: 0,
-      duration: 200,
+      duration: 220,
       delay: 70,
       ease: 'Quad.easeIn',
       onComplete: () => this.clearMole(mole),
@@ -270,11 +335,13 @@ export class PlayScene extends Phaser.Scene {
     this.misses += 1
     this.toast(Phaser.Utils.Array.GetRandom(PERSON.roastMiss), '#b22222')
     this.cameras.main.shake(80, 0.004)
+    const hole = HOLES[mole.holeIndex]
+    const layout = ROW_LAYOUT[hole.row]
     this.tweens.add({
       targets: mole.root,
-      y: mole.root.y + 80,
-      scaleY: 0.2,
-      duration: 180,
+      y: hole.y + layout.hideDown,
+      scaleY: 0.3,
+      duration: 220,
       ease: 'Back.easeIn',
       onComplete: () => this.clearMole(mole),
     })

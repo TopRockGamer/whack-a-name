@@ -1,6 +1,6 @@
-"""Prep circular faces: hard disc, photo fills it, REAL hair at crown.
+"""Prep tight circular face decals for mole-head textures (no hats).
 
-Strips source oval frame borders. No soft fade. No cloned mound.
+Hats are a separate layer on the mole character stack in PlayScene.
 """
 from __future__ import annotations
 
@@ -12,15 +12,13 @@ from PIL import Image, ImageDraw
 SRC = Path(r"C:\Users\user\Downloads\Face_Pop_8_Separate_PNGs")
 BACKUP = Path(r"C:\Users\user\Documents\whack-a-name\public\assets\faces_backup")
 NO_HAT = Path(r"C:\Users\user\Documents\whack-a-name\public\assets\faces_no_hat")
+FACES = Path(r"C:\Users\user\Documents\whack-a-name\public\assets\faces")
 SIZE = 256
-# Keep pad small so the whole hat+face stays inside the hole mask when scaled.
-TOP_PAD = 22
 
 
 def strip_bg(im: Image.Image) -> Image.Image:
     a = np.array(im.convert("RGBA"))
     r, g, b, al = a[:, :, 0], a[:, :, 1], a[:, :, 2], a[:, :, 3]
-    # Only pure backdrop black/white — do NOT strip dark hair or black caps.
     black = (r < 22) & (g < 22) & (b < 22)
     white = (r > 215) & (g > 215) & (b > 215)
     a[:, :, 3] = np.where(black | white, 0, al)
@@ -32,36 +30,9 @@ def opaque_bbox(arr: np.ndarray) -> tuple[int, int, int, int]:
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
 
 
-def erode_frame_ring(im: Image.Image) -> Image.Image:
-    """Knock out residual dark rim pixels along the opaque silhouette edge."""
-    a = np.array(im)
-    h, w = a.shape[:2]
-    opaque = a[:, :, 3] > 40
-    # edge = opaque with a transparent neighbour
-    from scipy import ndimage  # may not exist — do manual
-
-    out = a.copy()
-    for y in range(1, h - 1):
-        for x in range(1, w - 1):
-            if not opaque[y, x]:
-                continue
-            if not (
-                opaque[y - 1, x]
-                and opaque[y + 1, x]
-                and opaque[y, x - 1]
-                and opaque[y, x + 1]
-            ):
-                r, g, b, al = (int(v) for v in a[y, x])
-                if max(r, g, b) < 55:
-                    out[y, x, 3] = 0
-    return Image.fromarray(out, "RGBA")
-
-
 def erode_frame_ring_fast(im: Image.Image) -> Image.Image:
     a = np.array(im)
-    al = a[:, :, 3]
-    opaque = al > 40
-    # Shifted neighbours
+    opaque = a[:, :, 3] > 40
     up = np.zeros_like(opaque)
     down = np.zeros_like(opaque)
     left = np.zeros_like(opaque)
@@ -80,27 +51,25 @@ def prep_one(src: Path) -> Image.Image:
     raw = erode_frame_ring_fast(strip_bg(Image.open(src)))
     arr0 = np.array(raw)
     x0, y0, x1, y1 = opaque_bbox(arr0)
-    # Inset crop slightly to drop residual frame
-    pad = 2
+    pad = 3
     crop = raw.crop((x0 + pad, y0 + pad, x1 + 1 - pad, y1 + 1 - pad))
 
-    disc = SIZE - TOP_PAD - 2
+    # Fill almost the full disc — face is a head decal on the mole body.
     cw, ch = crop.size
-    scale = min((disc * 1.0) / max(cw, 1), (disc * 1.05) / max(ch, 1))
-    scale = max(scale, (disc * 0.94) / max(cw, 1))
+    scale = min((SIZE * 0.96) / max(cw, 1), (SIZE * 0.96) / max(ch, 1))
     nw = max(1, int(round(cw * scale)))
     nh = max(1, int(round(ch * scale)))
     face = crop.resize((nw, nh), Image.Resampling.LANCZOS)
 
     paste_x = (SIZE - nw) // 2
-    paste_y = TOP_PAD + 1
+    paste_y = (SIZE - nh) // 2
 
     canvas = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     canvas.alpha_composite(face, (paste_x, paste_y))
 
     mask = Image.new("L", (SIZE, SIZE), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((1, TOP_PAD, SIZE - 2, SIZE - 2), fill=255)
+    draw.ellipse((2, 2, SIZE - 3, SIZE - 3), fill=255)
 
     out = np.array(canvas)
     m = np.array(mask)
@@ -113,10 +82,13 @@ def prep_one(src: Path) -> Image.Image:
 def main() -> None:
     BACKUP.mkdir(parents=True, exist_ok=True)
     NO_HAT.mkdir(parents=True, exist_ok=True)
+    FACES.mkdir(parents=True, exist_ok=True)
     for src in sorted(SRC.glob("face_*.png")):
         out = prep_one(src)
         out.save(BACKUP / src.name)
         out.save(NO_HAT / src.name)
+        # Game loads faces/ as head decals (hat is a separate rig layer).
+        out.save(FACES / src.name)
         a = np.array(out)
         ys = np.where(a[:, :, 3] > 40)[0]
         print(f"{src.name}: y={ys.min()}..{ys.max()}")

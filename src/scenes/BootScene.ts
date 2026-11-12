@@ -27,6 +27,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('star_burst', 'assets/art/star_burst.png')
     this.load.image('confetti', 'assets/art/confetti_sheet.png')
 
+    // Mole character art — body + hat are rig layers; faces are head decals
+    const bust = `v=${Date.now()}`
+    this.load.image('mole_body', `assets/art/mole_body.png?${bust}`)
+    this.load.image('party_hat', `assets/art/party_hat_rig.png?${bust}`)
+
     const faceFiles: Record<string, string> = {
       face_01: 'face_01_surprised.png',
       face_02: 'face_02_smiling_cap.png',
@@ -37,9 +42,8 @@ export class BootScene extends Phaser.Scene {
       face_07: 'face_07_backwards_cap.png',
       face_08: 'face_08_wet_hair.png',
     }
-    // Cache-bust so baked-hat face PNGs always reload after art passes
-    const bust = `v=${Date.now()}`
     FACE_KEYS.forEach((key) => {
+      // Circular face decals (no baked hats — hat is on the mole rig)
       this.load.image(key, `assets/faces/${faceFiles[key]}?${bust}`)
     })
   }

@@ -26,13 +26,12 @@ export type HoleDef = {
   x: number
   y: number
   scale: number
-  /** back row = smaller faces, shallower pop */
+  /** back row = smaller moles, shallower pop */
   row: 'back' | 'front'
 }
 
 /**
- * Hole centres measured from painted voids in backdrop.png
- * (ChatGPT placement review + dark-ellipse detection).
+ * Hole centres measured from painted voids in backdrop.png.
  * Back row first, then front.
  */
 export const HOLES: HoleDef[] = [
@@ -45,35 +44,61 @@ export const HOLES: HoleDef[] = [
 ]
 
 /**
- * Face diameter + pop offsets per row.
- * Hats are baked into face PNGs (scripts/bake_hats_on_faces.py) so they
- * cannot float as a separate sprite.
+ * Mole character layout — one Phaser container per hole:
+ *   body (2.5D cylinder) + face decal + hat
+ * The whole stack rises through a hole geometry mask.
+ *
+ * bodyH: displayed height of mole_body.png (origin bottom-centre).
+ * facePx: circular face decal on the head.
+ * hatW: party hat width on the crown.
+ * headFromTop: fraction down the body PNG where the head centre sits (~78/320).
+ * popUp: how far above the hole centre the body origin sits when fully up
+ *   (negative = origin above hole centre so head clears the rim).
+ * hideDown: how far below hole centre when fully hidden.
+ */
+/**
+ * popUp / hideDown are offsets ADDED to hole.y for the body origin (bottom).
+ * Larger popUp = character sits lower so the HEAD lands inside the hole mask
+ * (face+hat were previously clipped above the ellipse).
+ *
+ * Target when up: head ≈ hole.y − 8 (near top-centre of the void).
+ *   popUp ≈ bodyH * (1 - headFromTop) - 8
  */
 export const ROW_LAYOUT = {
-  // Face PNG = hard circle + hat on real hair. Size to fill painted void.
-  back: { facePx: 124, hiddenY: 44, visibleY: -4 },
-  front: { facePx: 156, hiddenY: 54, visibleY: -2 },
+  back: {
+    bodyH: 160,
+    facePx: 102,
+    hatW: 62,
+    headFromTop: 0.22,
+    popUp: 112,
+    hideDown: 250,
+    visibleY: 112,
+    hiddenY: 250,
+  },
+  front: {
+    bodyH: 200,
+    facePx: 128,
+    hatW: 78,
+    headFromTop: 0.22,
+    popUp: 142,
+    hideDown: 310,
+    visibleY: 142,
+    hiddenY: 310,
+  },
 } as const
 
-/** @deprecated Hats are baked onto faces; kept for reference / ChatGPT notes */
-export const HAT_LAYOUT = {
-  originX: 0.5,
-  originY: 0.7,
-  widthMul: 0.62,
-  angle: -8,
-  offsetXMul: 0,
-  crownMul: 0.2,
-  note: 'baked into face PNGs — PlayScene no longer spawns a separate hat',
-} as const
-
-/** Hole-mask ellipse — match painted void; do not spill hats onto wood */
+/** Hole-mask ellipse — clips the rising mole body as it emerges */
 export const HOLE_MASK = {
-  // Match painted void; tall enough to keep baked hat+face as one person
-  back: { w: 124, h: 92 },
-  front: { w: 152, h: 136 },
+  back: { w: 132, h: 108 },
+  front: { w: 168, h: 156 },
 } as const
 
-/** ?pose=1 — hold every mole up for screenshot QA (read live, not import-time) */
+/** @deprecated hats are a rig layer on the mole, not a separate float */
+export const HAT_LAYOUT = {
+  note: 'hat is a child of the mole container — see PlayScene.spawnMoleAt',
+} as const
+
+/** ?pose=1 — hold every mole up for screenshot QA */
 export function isPoseMode(): boolean {
   if (typeof window === 'undefined') return false
   return new URLSearchParams(window.location.search).has('pose')
