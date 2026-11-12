@@ -50,9 +50,9 @@ export const HOLES: HoleDef[] = [
  * cannot float as a separate sprite.
  */
 export const ROW_LAYOUT = {
-  // Slightly larger so crown hair under brim reads; keep tips below wood plank.
-  back: { facePx: 70, hiddenY: 36, visibleY: 7 },
-  front: { facePx: 86, hiddenY: 44, visibleY: 16 },
+  // Face PNG = hard circle + hat on real hair. Size to fill painted void.
+  back: { facePx: 124, hiddenY: 44, visibleY: -4 },
+  front: { facePx: 156, hiddenY: 54, visibleY: -2 },
 } as const
 
 /** @deprecated Hats are baked onto faces; kept for reference / ChatGPT notes */
@@ -68,8 +68,9 @@ export const HAT_LAYOUT = {
 
 /** Hole-mask ellipse — match painted void; do not spill hats onto wood */
 export const HOLE_MASK = {
-  back: { w: 100, h: 56 },
-  front: { w: 112, h: 70 },
+  // Match painted void; tall enough to keep baked hat+face as one person
+  back: { w: 124, h: 92 },
+  front: { w: 152, h: 136 },
 } as const
 
 /** ?pose=1 — hold every mole up for screenshot QA (read live, not import-time) */
@@ -83,11 +84,11 @@ export const POSE_MODE = false
 
 export const FACE_KEYS = [
   'face_01',
-  'face_08', // was face_02 (pre-existing cap fought the party-hat seat)
+  'face_02',
   'face_03',
   'face_04',
   'face_05',
   'face_06',
   'face_07',
-  'face_02',
+  'face_08',
 ] as const

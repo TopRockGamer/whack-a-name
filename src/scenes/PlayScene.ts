@@ -173,19 +173,21 @@ export class PlayScene extends Phaser.Scene {
 
     const faceKey = FACE_KEYS[holeIndex % FACE_KEYS.length]
     const facePx = layout.facePx
-    // Hats are baked onto face PNGs (scripts/bake_hats_on_faces.py)
-    const face = this.add.image(0, 0, faceKey).setDisplaySize(facePx, facePx)
+    // Hats are baked onto face PNGs (scripts/bake_hats_on_faces.py).
+    // origin ~0.5: hat sits in the top of the circle, person fills the hole.
+    const face = this.add
+      .image(0, 0, faceKey)
+      .setOrigin(0.5, 0.5)
+      .setDisplaySize(facePx, facePx)
 
     // Clip to painted hole void (baked hat is inside the face circle)
     const maskDef = HOLE_MASK[hole.row]
     const maskW = maskDef.w * hole.scale
     const maskH = maskDef.h * hole.scale
-    // add:false — never put mask graphics on the display list (a visible
-    // ellipse reads as a grey void slab and makes baked hats look floating).
+    // add:false — mask graphics must not appear on the display list.
     const maskGfx = this.make.graphics({ x: 0, y: 0, add: false })
     maskGfx.fillStyle(0xffffff)
-    const maskY = hole.row === 'front' ? hole.y + 6 : hole.y + 2
-    maskGfx.fillEllipse(hole.x, maskY, maskW, maskH)
+    maskGfx.fillEllipse(hole.x, hole.y, maskW, maskH)
     face.setMask(maskGfx.createGeometryMask())
 
     const startY = hold ? hole.y + layout.visibleY : hole.y + layout.hiddenY

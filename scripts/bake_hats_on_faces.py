@@ -1,17 +1,23 @@
-"""Bake party hats onto faces with an unmistakable hair seat under the brim."""
+"""Bake party hat onto REAL photo hair — one connected person.
+
+Brim digs into opaque photo hair. Only plug transparent pixels that already
+sit next to real hair (never invent a dome in empty circle space).
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
 ROOT = Path(r"C:\Users\user\Documents\whack-a-name")
 FACES = ROOT / "public/assets/faces"
 SRC = ROOT / "public/assets/faces_backup"
 HAT = ROOT / "public/assets/art/party_hat.png"
 
-HAIR_BAND = 48  # source px of visible crown under brim (~14px at 74px display)
+RIM_INTO_HAIR = 28
+HAT_WIDTH_FRAC = 0.70
+MAX_HAT_H = 70
 
 hat_src = Image.open(HAT).convert("RGBA")
 
@@ -33,7 +39,7 @@ def clean_hat(hat: Image.Image) -> Image.Image:
         sum(1 for x in range(w) if is_cone_stripe(*(int(v) for v in a[y, x])))
         for y in range(h)
     ]
-    y0, y1 = int(h * 0.35), int(h * 0.70)
+    y0, y1 = int(h * 0.32), int(h * 0.72)
     band = scores[y0:y1]
     if not band or max(band) < 8:
         rim = int(h * 0.58)
@@ -50,21 +56,27 @@ def clean_hat(hat: Image.Image) -> Image.Image:
             r, g, b, al = (int(v) for v in a[y, x])
             if al > 40 and r > 200 and g > 200 and b > 170:
                 a[y, x, 3] = 0
-    return Image.fromarray(a, "RGBA")
+    ys, xs = np.where(a[:, :, 3] > 40)
+    if len(ys) == 0:
+        return Image.fromarray(a, "RGBA")
+    return Image.fromarray(a[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1], "RGBA")
 
 
 def find_crown_y(arr: np.ndarray) -> int:
     h, w = arr.shape[:2]
     cx = w // 2
     for y in range(h):
-        count = 0
-        for x in range(cx - 35, cx + 36):
-            r, g, b, al = (int(v) for v in arr[y, x])
-            if al >= 100 and max(r, g, b) < 130:
-                count += 1
-        if count >= 14:
+        count = sum(
+            1
+            for x in range(cx - 42, cx + 43)
+            if (lambda p: p[3] >= 200 and max(p[0], p[1], p[2]) < 145)(
+                tuple(int(v) for v in arr[y, x])
+            )
+        )
+        if count >= 8:
             return y
-    return 20
+    ys = np.where(arr[:, :, 3] > 40)[0]
+    return int(ys.min()) if len(ys) else 48
 
 
 def find_hairline(arr: np.ndarray) -> int:
@@ -78,31 +90,29 @@ def find_hairline(arr: np.ndarray) -> int:
                 continue
             if r > 160 and g > 110 and b > 90 and max(r, g, b) > 150:
                 skin += 1
-            elif max(r, g, b) < 130:
+            elif max(r, g, b) < 145:
                 hair += 1
         if skin >= 10 and skin > hair:
             return y
-    return 130
+    return 120
 
 
-def sample_hair_color(arr: np.ndarray, y0: int, y1: int) -> tuple[int, int, int]:
+def nearest_hair(arr: np.ndarray, x: int, y: int, crown: int, hairline: int):
     h, w = arr.shape[:2]
-    cx = w // 2
-    rs = gs = bs = n = 0
-    for y in range(max(0, y0), min(h, y1)):
-        for x in range(cx - 36, cx + 37):
-            r, g, b, al = (int(v) for v in arr[y, x])
-            if al < 120:
+    best = None
+    best_d = 9999
+    y0 = max(0, crown)
+    y1 = min(h, max(hairline, crown + 1))
+    for yy in range(y0, y1):
+        for xx in range(max(0, x - 40), min(w, x + 41)):
+            r, g, b, al = (int(v) for v in arr[yy, xx])
+            if al < 200 or max(r, g, b) > 140:
                 continue
-            if max(r, g, b) < 140:
-                rs += r
-                gs += g
-                bs += b
-                n += 1
-    if n < 8:
-        return 110, 82, 64
-    # Lift far above void orange-black (~82,34,6) so crown reads at game scale
-    return min(rs // n + 40, 140), min(gs // n + 32, 110), min(bs // n + 24, 88)
+            d = (xx - x) * (xx - x) + (yy - y) * (yy - y)
+            if d < best_d:
+                best_d = d
+                best = (r, g, b, 255)
+    return best
 
 
 for src in sorted(SRC.glob("face_*.png")):
@@ -110,165 +120,98 @@ for src in sorted(SRC.glob("face_*.png")):
     w, h = face0.size
     arr0 = np.array(face0)
     crown0 = find_crown_y(arr0)
-    hairline = find_hairline(arr0)
-    hr, hg, hb = sample_hair_color(arr0, crown0, hairline)
+    hairline = max(find_hairline(arr0), crown0 + 18)
     ys, xs = np.where(arr0[:, :, 3] > 40)
     cx = float((xs.min() + xs.max()) / 2)
     content_w = int(xs.max() - xs.min() + 1)
 
-    target_rim = hairline - HAIR_BAND
-    target_rim = max(crown0 + 20, min(target_rim, hairline - 22))
+    hair_span = max(1, hairline - crown0)
+    target_rim = crown0 + min(RIM_INTO_HAIR, max(16, int(hair_span * 0.55)))
+    target_rim = min(target_rim, hairline - 4)
 
-    scale = (content_w * 0.36) / hat_src.width
-    hat = None
-    paste_x = paste_y = 0
-    for _ in range(12):
-        hw = max(1, int(round(hat_src.width * scale)))
-        hh = max(1, int(round(hat_src.height * scale)))
-        hat = clean_hat(
-            hat_src.resize((hw, hh), Image.Resampling.LANCZOS).rotate(
-                5, expand=True, resample=Image.Resampling.BICUBIC
-            )
-        )
-        ha = np.array(hat)
-        hys, hxs = np.where(ha[:, :, 3] > 40)
-        brim_x = float((hxs.min() + hxs.max()) / 2)
-        brim_y = float(hys.max())
-        tip_y = float(hys.min())
-        paste_x = int(round(cx - brim_x))
-        paste_y = int(round(target_rim - brim_y))
-        if paste_y + tip_y >= 3 and paste_y >= 1:
-            break
-        scale *= 0.90
+    headroom = max(12, target_rim - 2)
+    max_hat_h = min(MAX_HAT_H, headroom + 12)
+    target_w = max(1, int(round(content_w * HAT_WIDTH_FRAC)))
+    base = clean_hat(hat_src)
+    bw, bh = base.size
+    scale = min(target_w / bw, max_hat_h / bh)
+    hw = max(1, int(round(bw * scale)))
+    hh = max(1, int(round(bh * scale)))
+    hat = base.resize((hw, hh), Image.Resampling.LANCZOS).rotate(
+        3, expand=True, resample=Image.Resampling.BICUBIC
+    )
+    ha = np.array(hat)
+    hys, hxs = np.where(ha[:, :, 3] > 40)
+    hat = Image.fromarray(
+        ha[hys.min() : hys.max() + 1, hxs.min() : hxs.max() + 1], "RGBA"
+    )
+    ha = np.array(hat)
+    hys, hxs = np.where(ha[:, :, 3] > 40)
+    brim_x = float((hxs.min() + hxs.max()) / 2)
+    brim_y = float(hys.max())
+    tip_y = float(hys.min())
+    paste_x = int(round(cx - brim_x))
+    paste_y = int(round(target_rim - brim_y))
+    if paste_y + tip_y < 1:
+        paste_y = int(1 - tip_y)
+    paste_y = max(1, paste_y)
 
-    assert hat is not None
+    # Plug ONLY transparent pixels that are adjacent to real opaque hair —
+    # never paint a dome into empty circle space above the crown.
+    plugged = np.array(face0)
+    plug_r = int(hw * 0.34)
+    for y in range(max(crown0, target_rim - 2), min(h, target_rim + 8)):
+        for x in range(max(0, int(cx) - plug_r), min(w, int(cx) + plug_r + 1)):
+            if plugged[y, x, 3] >= 200:
+                continue
+            # Must be near an existing opaque photo pixel
+            near = False
+            for oy in range(-2, 3):
+                for ox in range(-2, 3):
+                    yy, xx = y + oy, x + ox
+                    if 0 <= yy < h and 0 <= xx < w and arr0[yy, xx, 3] >= 200:
+                        near = True
+                        break
+                if near:
+                    break
+            if not near:
+                continue
+            pix = nearest_hair(arr0, x, y, crown0, hairline)
+            if pix is None:
+                continue
+            plugged[y, x] = pix
 
-    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    canvas.alpha_composite(face0)
-    canvas.alpha_composite(hat, (paste_x, max(1, paste_y)))
+    canvas = Image.fromarray(plugged, "RGBA")
+    canvas.alpha_composite(hat, (paste_x, paste_y))
     shifted = np.array(canvas)
 
-    # Find actual brim row
     brim_row = target_rim
-    for y in range(min(h - 1, target_rim + 14), max(0, target_rim - 28), -1):
+    for y in range(min(h - 1, target_rim + 8), max(0, target_rim - 20), -1):
         hits = sum(
             1
-            for x in range(max(0, int(cx) - 28), min(w, int(cx) + 29))
+            for x in range(max(0, int(cx) - 30), min(w, int(cx) + 31))
             if is_cone_stripe(*(int(v) for v in shifted[y, x]))
         )
         if hits >= 3:
             brim_row = y
             break
 
+    # Real photo hair over brim lip
     cx_i = int(cx)
-    rng = np.random.default_rng(abs(hash(src.name)) % (2**31))
-
-    # Rounded crown dome under brim (NOT a flat wood-like bar).
-    # Ellipse from brim down to hairline, tapering at the sides.
-    seat_top = max(0, brim_row - 1)
-    seat_bot = min(h - 1, hairline + 4)
-    dome_h = max(8, seat_bot - seat_top)
-    dome_w = content_w * 0.48
-    for y in range(seat_top, seat_bot + 1):
-        ty = (y - seat_top) / dome_h  # 0 at brim → 1 at hairline
-        # width grows toward hairline (skull silhouette)
-        half = dome_w * (0.85 + 0.20 * ty)
-        for x in range(max(0, int(cx - half)), min(w, int(cx + half) + 1)):
-            if (x - (w - 1) / 2) ** 2 + (y - (h - 1) / 2) ** 2 > (min(w, h) * 0.49) ** 2:
-                continue
-            # soft elliptical falloff at sides — keep center solid
-            nx = abs(x - cx) / max(1.0, half)
-            if nx > 0.98:
+    for y in range(max(0, brim_row - 1), min(h, brim_row + 7)):
+        for x in range(max(0, cx_i - 55), min(w, cx_i + 56)):
+            r, g, b, al = (int(v) for v in arr0[y, x])
+            if al < 200 or max(r, g, b) > 140:
                 continue
             r2, g2, b2, a2 = (int(v) for v in shifted[y, x])
             if y < brim_row and is_cone_stripe(r2, g2, b2, a2):
                 continue
-            if y > hairline + 2 and a2 > 160 and max(r2, g2, b2) > 160:
-                continue
-            strand = int(rng.integers(-22, 20))
-            # radial highlight so it reads as hair volume, not a plank
-            hi = int(28 * (1.0 - nx)) if (int(x * 2.3 + y) % 7 == 0) else 0
-            rr = int(np.clip(hr + strand + hi, 40, 150))
-            gg = int(np.clip(hg + strand // 2 + hi // 2, 30, 120))
-            bb = int(np.clip(hb + strand // 3 + hi // 3, 22, 95))
-            if y >= hairline - 2 and a2 > 100 and max(r2, g2, b2) > 140:
-                t = 0.4
-                rr = int(r2 * (1 - t) + rr * t)
-                gg = int(g2 * (1 - t) + gg * t)
-                bb = int(b2 * (1 - t) + bb * t)
-            shifted[y, x] = (rr, gg, bb, 255)
-
-    # Hair OVER the lower brim lip (8px) so seating is unmistakable at board scale
-    for y in range(max(0, brim_row - 8), min(h, brim_row + 6)):
-        for x in range(max(0, cx_i - 46), min(w, cx_i + 47)):
-            nx = abs(x - cx) / max(1.0, dome_w * 0.9)
-            if nx > 0.95:
-                continue
-            r2, g2, b2, a2 = (int(v) for v in shifted[y, x])
-            # Keep upper cone stripes; only cover brim lip / just-below
-            if y < brim_row - 3 and is_cone_stripe(r2, g2, b2, a2):
-                continue
-            strand = int(rng.integers(-14, 16))
-            hi = 36 if (x + y * 2) % 6 == 0 else 0
-            shifted[y, x] = (
-                int(np.clip(hr - 8 + strand + hi, 35, 145)),
-                int(np.clip(hg - 6 + strand // 2 + hi // 2, 26, 115)),
-                int(np.clip(hb - 4 + strand // 3, 18, 90)),
-                255,
-            )
-
-    # Fill hollow cone interior with hair so dark void doesn't read as a gap
-    hat_top = max(2, paste_y + 4)
-    for y in range(hat_top, brim_row):
-        for x in range(max(0, cx_i - 28), min(w, cx_i + 29)):
-            r2, g2, b2, a2 = (int(v) for v in shifted[y, x])
-            if is_cone_stripe(r2, g2, b2, a2):
-                continue
-            # transparent / very dark through hollow
-            if a2 > 200 and max(r2, g2, b2) > 70:
-                continue
-            strand = int(rng.integers(-12, 12))
-            shifted[y, x] = (
-                int(np.clip(hr + strand, 40, 140)),
-                int(np.clip(hg + strand // 2, 30, 110)),
-                int(np.clip(hb + strand // 3, 22, 88)),
-                255,
-            )
-
-    # Cover pre-existing grey/blue caps under the party hat so crown reads as hair
-    for y in range(max(0, brim_row - 4), min(h, hairline + 18)):
-        for x in range(max(0, cx_i - 52), min(w, cx_i + 53)):
-            if (x - (w - 1) / 2) ** 2 + (y - (h - 1) / 2) ** 2 > (min(w, h) * 0.49) ** 2:
-                continue
-            r2, g2, b2, a2 = (int(v) for v in shifted[y, x])
-            if a2 < 80:
-                continue
-            if is_cone_stripe(r2, g2, b2, a2) and y < brim_row:
-                continue
-            # grey / blue fabric caps
-            grey = abs(r2 - g2) < 25 and abs(g2 - b2) < 30 and 90 < r2 < 200
-            blueish = b2 > r2 + 15 and b2 > g2 + 5 and b2 > 80
-            if not (grey or blueish):
-                continue
-            if y > hairline + 10 and max(r2, g2, b2) > 170:
-                continue
-            strand = int(rng.integers(-16, 14))
-            shifted[y, x] = (
-                int(np.clip(hr + strand, 28, 115)),
-                int(np.clip(hg + strand // 2, 20, 90)),
-                int(np.clip(hb + strand // 3, 14, 75)),
-                255,
-            )
-
-    yy, xx = np.mgrid[:h, :w]
-    dist = np.sqrt((xx - (w - 1) / 2) ** 2 + (yy - (h - 1) / 2) ** 2)
-    alpha = np.clip((min(w, h) * 0.495 + 0.5 - dist) * 255, 0, 255).astype(np.uint8)
-    shifted[:, :, 3] = np.minimum(shifted[:, :, 3], alpha)
+            shifted[y, x] = (r, g, b, 255)
 
     Image.fromarray(shifted, "RGBA").save(FACES / src.name)
     print(
-        f"{src.name}: crown0={crown0} hl={hairline} paste_y={paste_y} "
-        f"brim_row={brim_row} hair_under={hairline - brim_row}"
+        f"{src.name}: crown0={crown0} hl={hairline} hat={hat.size} "
+        f"paste_y={paste_y} brim_row={brim_row}"
     )
 
 print("done")
