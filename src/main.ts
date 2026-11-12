@@ -9,7 +9,7 @@ import { EndScene } from './scenes/EndScene'
 const parent = document.querySelector<HTMLDivElement>('#app')!
 parent.innerHTML = '<div id="game-parent"></div>'
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-parent',
   width: GAME_WIDTH,
@@ -21,3 +21,4 @@ new Phaser.Game({
   },
   scene: [BootScene, MenuScene, PlayScene, EndScene],
 })
+;(window as unknown as { __PHASER_GAME__: Phaser.Game }).__PHASER_GAME__ = game

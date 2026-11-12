@@ -20,7 +20,6 @@ export class BootScene extends Phaser.Scene {
     this.load.image('backdrop', 'assets/art/backdrop.png')
     this.load.image('hole_frame', 'assets/art/hole_frame.png')
     this.load.image('hole_void', 'assets/art/hole_void.png')
-    this.load.image('hat', 'assets/art/party_hat.png')
     this.load.image('banner', 'assets/art/banner.png')
     this.load.image('mallet_0', 'assets/art/mallet_0.png')
     this.load.image('mallet_1', 'assets/art/mallet_1.png')
@@ -38,8 +37,10 @@ export class BootScene extends Phaser.Scene {
       'face_07_backwards_cap.png',
       'face_08_wet_hair.png',
     ]
+    // Cache-bust so baked-hat face PNGs always reload after art passes
+    const bust = `v=${Date.now()}`
     FACE_KEYS.forEach((key, i) => {
-      this.load.image(key, `assets/faces/${faceFiles[i]}`)
+      this.load.image(key, `assets/faces/${faceFiles[i]}?${bust}`)
     })
   }
 

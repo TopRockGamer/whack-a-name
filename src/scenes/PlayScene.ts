@@ -1,7 +1,6 @@
 import Phaser from 'phaser'
 import {
   FACE_KEYS,
-  HAT_LAYOUT,
   HIT_SCORE,
   HOLE_MASK,
   HOLES,
@@ -19,7 +18,6 @@ type Mole = {
   holeIndex: number
   root: Phaser.GameObjects.Container
   face: Phaser.GameObjects.Image
-  hat: Phaser.GameObjects.Image
   hitbox: Phaser.GameObjects.Zone
   maskGfx: Phaser.GameObjects.Graphics
   alive: boolean
@@ -129,20 +127,12 @@ export class PlayScene extends Phaser.Scene {
       this.time.delayedCall(100, () => {
         const dump = this.moles.map((m, i) => {
           if (!m) return null
-          const hole = HOLES[i]
           return {
             i,
-            hole,
+            hole: HOLES[i],
             root: { x: m.root.x, y: m.root.y, scaleY: m.root.scaleY },
             face: { w: m.face.displayWidth, h: m.face.displayHeight },
-            hat: {
-              x: m.hat.x,
-              y: m.hat.y,
-              scale: m.hat.scaleX,
-              originY: m.hat.originY,
-              displayH: m.hat.displayHeight,
-              worldY: m.root.y + m.hat.y,
-            },
+            bakedHat: true,
           }
         })
         ;(window as unknown as { __POSE_DUMP__: unknown }).__POSE_DUMP__ = dump
@@ -183,29 +173,20 @@ export class PlayScene extends Phaser.Scene {
 
     const faceKey = FACE_KEYS[holeIndex % FACE_KEYS.length]
     const facePx = layout.facePx
+    // Hats are baked onto face PNGs (scripts/bake_hats_on_faces.py)
     const face = this.add.image(0, 0, faceKey).setDisplaySize(facePx, facePx)
 
-    // Face clipped to the painted hole void; hat stays above the rim
+    // Clip to painted hole void (baked hat is inside the face circle)
     const maskDef = HOLE_MASK[hole.row]
     const maskW = maskDef.w * hole.scale
     const maskH = maskDef.h * hole.scale
     const maskGfx = this.make.graphics({ x: 0, y: 0 })
     maskGfx.fillStyle(0xffffff)
-    maskGfx.fillEllipse(hole.x, hole.y - 2, maskW, maskH)
+    maskGfx.fillEllipse(hole.x, hole.y - 4, maskW, maskH)
     face.setMask(maskGfx.createGeometryMask())
 
-    // Hat brim on hairline (face-relative so back/front rows match)
-    const hat = this.add.image(0, 0, 'hat')
-    hat.setOrigin(HAT_LAYOUT.originX, HAT_LAYOUT.originY)
-    const hatScale = (facePx * HAT_LAYOUT.widthMul) / Math.max(hat.width, 1)
-    hat.setScale(hatScale)
-    hat.setAngle(HAT_LAYOUT.angle)
-    hat.setPosition(HAT_LAYOUT.offsetXMul, -facePx * HAT_LAYOUT.crownMul)
-
     const startY = hold ? hole.y + layout.visibleY : hole.y + layout.hiddenY
-    const root = this.add
-      .container(hole.x, startY, [face, hat])
-      .setDepth(12 + holeIndex)
+    const root = this.add.container(hole.x, startY, [face]).setDepth(12 + holeIndex)
     if (!hold) root.setScale(1, 0.25)
 
     const hitbox = this.add
@@ -213,7 +194,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(30 + holeIndex)
       .setInteractive({ useHandCursor: true })
 
-    const mole: Mole = { holeIndex, root, face, hat, hitbox, maskGfx, alive: true }
+    const mole: Mole = { holeIndex, root, face, hitbox, maskGfx, alive: true }
     this.moles[holeIndex] = mole
 
     if (!hold) {

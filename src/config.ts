@@ -46,33 +46,29 @@ export const HOLES: HoleDef[] = [
 
 /**
  * Face diameter + pop offsets per row.
- * visibleY ≈ 0 keeps the face centred on the painted void so the mask
- * shows forehead near the top of the hole (where the hat should sit).
+ * Hats are baked into face PNGs (scripts/bake_hats_on_faces.py) so they
+ * cannot float as a separate sprite.
  */
 export const ROW_LAYOUT = {
-  back: { facePx: 98, hiddenY: 48, visibleY: 0 },
-  front: { facePx: 116, hiddenY: 58, visibleY: 0 },
+  back: { facePx: 108, hiddenY: 48, visibleY: -6 },
+  front: { facePx: 126, hiddenY: 58, visibleY: -8 },
 } as const
 
-/**
- * Hat local transform (ChatGPT Desktop + pose QA).
- * Local Y = -facePx * crownMul so back/front rows scale together.
- */
+/** @deprecated Hats are baked onto faces; kept for reference / ChatGPT notes */
 export const HAT_LAYOUT = {
   originX: 0.5,
-  originY: 0.82,
-  /** hatScale = (facePx * widthMul) / 174 */
-  widthMul: 0.55,
+  originY: 0.7,
+  widthMul: 0.62,
   angle: -8,
   offsetXMul: 0,
-  /** Brim on hairline ≈ 0.36–0.40 of face radius above center */
-  crownMul: 0.38,
+  crownMul: 0.2,
+  note: 'baked into face PNGs — PlayScene no longer spawns a separate hat',
 } as const
 
-/** Hole-mask ellipse — keep inside painted voids */
+/** Hole-mask ellipse — tall enough that baked hat+crown stay one unit (not split onto wood) */
 export const HOLE_MASK = {
-  back: { w: 88, h: 60 },
-  front: { w: 102, h: 70 },
+  back: { w: 100, h: 92 },
+  front: { w: 118, h: 108 },
 } as const
 
 /** ?pose=1 — hold every mole up for screenshot QA (read live, not import-time) */
