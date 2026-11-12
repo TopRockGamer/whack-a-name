@@ -38,38 +38,44 @@ export const HOLES: HoleDef[] = [
 ]
 
 /**
- * Plump creature: blank fur head + shoulders/chest.
- * facePx covers the head dome; headFromTop ≈ 118/340 on mole_body.png
+ * TopRock-approved mole_body.png (512×624): plump fur + blank dome + carnival collar.
+ * headFromTop = head centre Y / sprite H (from import_approved_mole.py).
+ * facePx ≈ 0.335 * bodyH so the decal sits ON the dome, not replacing the body.
  */
+export const MOLE_BODY_ASPECT = 512 / 624
+
 export const ROW_LAYOUT = {
   back: {
-    bodyH: 175,
-    facePx: 72,
-    hatW: 52,
-    headFromTop: 0.32,
+    bodyH: 220,
+    facePx: 54,
+    hatW: 42,
+    // Dome centre is high on the approved sprite (blank head sphere)
+    headFromTop: 0.175,
+    headAboveHole: 6,
     popUp: 72,
     hideDown: 210,
   },
   front: {
-    bodyH: 230,
-    facePx: 86,
-    hatW: 62,
-    headFromTop: 0.32,
+    bodyH: 280,
+    facePx: 68,
+    hatW: 50,
+    headFromTop: 0.175,
+    headAboveHole: 8,
     popUp: 90,
     hideDown: 260,
   },
 } as const
 
-/** Tight hole mask — body clipped by rim, never spills onto wood */
+/** Larger wells so the approved furry torso + collar can be seen */
 export const HOLE_MASK = {
-  back: { w: 108, h: 92 },
-  front: { w: 136, h: 128 },
+  back: { w: 150, h: 132 },
+  front: { w: 190, h: 176 },
 } as const
 
-/** Rim lip ABOVE moles — slightly larger than mask for well depth */
+/** Rim lip ABOVE mole (child of hole bucket) */
 export const HOLE_RIM = {
-  back: { size: 148 },
-  front: { size: 186 },
+  back: { size: 196 },
+  front: { size: 248 },
 } as const
 
 export function isPoseMode(): boolean {

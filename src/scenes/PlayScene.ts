@@ -9,6 +9,7 @@ import {
   MIN_UP_MS,
   PERSON,
   isPoseMode,
+  MOLE_BODY_ASPECT,
   ROW_LAYOUT,
   ROUND_SECONDS,
   SPAWN_GAP_END_MS,
@@ -263,37 +264,36 @@ export class PlayScene extends Phaser.Scene {
 
     const faceKey = FACE_KEYS[holeIndex % FACE_KEYS.length]
     const bodyH = layout.bodyH * hole.scale
-    // mole_body.png is 300×360 (creature torso + blank fur head)
-    const bodyW = bodyH * (300 / 360)
+    // TopRock-approved mole_body.png (512×624 plump fur + blank dome + collar)
+    const bodyW = bodyH * MOLE_BODY_ASPECT
     const facePx = layout.facePx * hole.scale
     const hatW = layout.hatW * hole.scale
 
-    // Body width must stay inside the hole mask (no paddle on the wood)
     const maskDef = HOLE_MASK[hole.row]
     const maskW = maskDef.w * hole.scale
     const maskH = maskDef.h * hole.scale
-    const fittedW = Math.min(bodyW, maskW * 0.9)
-    const fittedH = fittedW * (360 / 300)
+    // Fit width inside the well; keep enough height so collar + torso read clearly
+    const fittedW = Math.min(bodyW, maskW * 0.98)
+    const fittedH = fittedW / MOLE_BODY_ASPECT
 
     const body = this.add
       .image(0, 0, 'mole_body')
       .setOrigin(0.5, 1)
       .setDisplaySize(fittedW, fittedH)
-      .setTint(0xffffff)
 
-    // Face is a SMALL head sticker on the fur dome — fur cheeks/shoulders must show
-    // (a full-size face disc WAS the beige "paddle" under the eyes).
+    // Face decal ON the blank dome only (headFromTop from import metrics)
     const headY = -fittedH * (1 - layout.headFromTop)
     const face = this.add
-      .image(0, headY - fittedH * 0.02, faceKey)
-      .setOrigin(0.5, 0.62)
+      .image(0, headY, faceKey)
+      .setOrigin(0.5, 0.5)
       .setDisplaySize(facePx, facePx)
 
+    // Hat sits on the fur crown just above the face decal
     const hat = this.add
-      .image(2, headY - facePx * 0.55, 'party_hat')
-      .setOrigin(0.5, 0.92)
-      .setDisplaySize(hatW, hatW * 1.18)
-      .setAngle(-7)
+      .image(1, headY - facePx * 0.42, 'party_hat')
+      .setOrigin(0.5, 0.95)
+      .setDisplaySize(hatW, hatW * 1.15)
+      .setAngle(-5)
 
     // Clipping = board_lid punch. Rim is a CHILD of this bucket drawn AFTER the
     // mole so the character always goes under the lip (no depth-sort fights).
@@ -304,10 +304,11 @@ export class PlayScene extends Phaser.Scene {
     const rim = this.add.image(0, 0, 'hole_rim').setDisplaySize(rimSize, rimSize).setAlpha(0.96)
     holeBucket.add([root, rim])
 
-    // Local Y relative to hole centre (mask is fixed on the hole)
-    const visibleY = -4 + fittedH * (1 - layout.headFromTop)
-    // Fully under the punched lid (board covers spill; only the well shows the rise)
-    const hiddenY = fittedH * 0.92 + maskH * 0.55
+    // Local Y relative to hole centre. Raise the stack so the blank dome sits in
+    // the UPPER well and the plump torso/arms fill the opening (not head-only).
+    const visibleY =
+      -layout.headAboveHole * hole.scale + fittedH * (1 - layout.headFromTop)
+    const hiddenY = fittedH * 0.95 + maskH * 0.6
     root.y = hold ? visibleY : hiddenY
     // IMPORTANT: do NOT scale holeBucket/root — geometry masks leak when scaled.
     // Squash is applied to body/face/hat children only.

@@ -33,13 +33,14 @@ const bust = Date.now()
     waitUntil: 'networkidle',
   })
   await page.waitForSelector('canvas')
-  // Capture at each step (~380ms) — 5 steps + settle
-  for (let i = 0; i < 6; i++) {
-    await page.waitForTimeout(400)
+  // First step starts ~320ms after load; each step ~380ms
+  await page.waitForTimeout(450)
+  for (let i = 0; i < 5; i++) {
     const p = path.join(OUT_DIR, `proof_${String(i).padStart(2, '0')}.png`)
     await page.screenshot({ path: p })
+    await page.waitForTimeout(400)
   }
-  await page.waitForTimeout(200)
+  await page.waitForFunction(() => window.__POP_PROOF__, null, { timeout: 8000 })
   const meta = await page.evaluate(() => window.__POP_PROOF__)
   console.log('popproof', meta)
   await browser.close()
