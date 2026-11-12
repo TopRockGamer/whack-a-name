@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { PERSON } from '../config'
+import { PERSON, isPoseMode } from '../config'
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -7,20 +7,26 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    if (isPoseMode()) {
+      this.scene.start('play')
+      return
+    }
+
     this.add.image(640, 360, 'backdrop').setDisplaySize(1280, 720)
 
-    const banner = this.add.image(640, 118, 'banner').setScale(0.85)
+    const banner = this.add.image(640, 105, 'banner')
+    banner.setDisplaySize(650, Math.round(650 * (banner.height / Math.max(banner.width, 1))))
     this.add
-      .text(banner.x, banner.y - 4, PERSON.bannerTitle, {
+      .text(banner.x, banner.y - 2, PERSON.bannerTitle, {
         fontFamily: 'Trebuchet MS, Segoe UI, sans-serif',
-        fontSize: '42px',
+        fontSize: '34px',
         color: '#1a120c',
         fontStyle: 'bold',
       })
       .setOrigin(0.5)
 
     this.add
-      .text(640, 200, 'Tap the faces before they ruin the playlist.', {
+      .text(640, 175, 'Tap the faces before they ruin the playlist.', {
         fontFamily: 'Trebuchet MS, Segoe UI, sans-serif',
         fontSize: '22px',
         color: '#f5e6c8',
@@ -28,7 +34,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
 
     const btn = this.add
-      .text(640, 560, 'PLAY', {
+      .text(640, 620, 'PLAY', {
         fontFamily: 'Trebuchet MS, Segoe UI, sans-serif',
         fontSize: '40px',
         color: '#1a120c',
