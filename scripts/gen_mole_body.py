@@ -1,4 +1,4 @@
-"""Paint a stronger 2.5D fairground mole: round head + shaded cylinder torso."""
+"""Creature mole body — dark furry shoulders + blank head dome for face decal."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,108 +7,121 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 OUT = Path(r"C:\Users\user\Documents\whack-a-name\public\assets\art\mole_body.png")
-W, H = 256, 320
+W, H = 300, 360
 
 
 def shade(base, t):
-    r, g, b = base
+    r, g, b = [float(c) for c in base]
     if t >= 0:
+        t = min(1.0, t)
         return (
-            int(r + (255 - r) * t * 0.4),
-            int(g + (255 - g) * t * 0.4),
-            int(b + (255 - b) * t * 0.4),
+            int(r + (255 - r) * t * 0.28),
+            int(g + (255 - g) * t * 0.28),
+            int(b + (255 - b) * t * 0.28),
         )
-    t = -t
-    return (int(r * (1 - 0.5 * t)), int(g * (1 - 0.5 * t)), int(b * (1 - 0.5 * t)))
+    t = min(1.0, -t)
+    return (int(r * (1 - 0.62 * t)), int(g * (1 - 0.62 * t)), int(b * (1 - 0.62 * t)))
+
+
+def stamp(canvas, cx, cy, rx, ry, color, strength=1.0, lit=(-0.4, -0.35)):
+    y0, y1 = max(0, int(cy - ry - 2)), min(H, int(cy + ry + 3))
+    x0, x1 = max(0, int(cx - rx - 2)), min(W, int(cx + rx + 3))
+    lx, ly = lit
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            u = (x - cx) / rx
+            v = (y - cy) / ry
+            d2 = u * u + v * v
+            if d2 >= 1.0:
+                continue
+            fall = (1.0 - d2) ** 1.25
+            z = np.sqrt(max(0.0, 1.0 - d2))
+            lit_amt = 0.2 + 0.8 * max(0.0, lx * (-u) + ly * (-v) + 0.48 * z)
+            if v > 0.35:
+                lit_amt *= 0.7
+            col = shade(color, lit_amt - 0.55)
+            # fur flecks
+            n = ((x * 17 + y * 29) % 9) - 4
+            if ((x * 5 + y * 3) % 11) == 0:
+                n -= 10
+            col = tuple(int(np.clip(c + n, 0, 255)) for c in col)
+            a = strength * fall
+            if a < 0.03:
+                continue
+            pr, pg, pb, pa = [float(v) for v in canvas[y, x]]
+            out_a = min(1.0, pa / 255.0 + a * (1.0 - pa / 255.0))
+            t = min(1.0, a * 1.2)
+            canvas[y, x, 0] = int(pr * (1 - t) + col[0] * t)
+            canvas[y, x, 1] = int(pg * (1 - t) + col[1] * t)
+            canvas[y, x, 2] = int(pb * (1 - t) + col[2] * t)
+            canvas[y, x, 3] = int(255 * out_a)
 
 
 def main() -> None:
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    px = img.load()
+    canvas = np.zeros((H, W, 4), dtype=np.float32)
+    cx = W / 2.0
 
-    cx = W // 2
-    head_cy = 78
-    head_rx, head_ry = 82, 76
-    cyl_top = head_cy + 22
-    cyl_bot = H - 12
-    cyl_rx = 74
+    # DARK chocolate fur — never beige paddle
+    fur = (86, 52, 32)
+    fur_hi = (118, 78, 50)
+    fur_lo = (42, 26, 16)
+    fur_mid = (96, 60, 38)
 
-    fur = (176, 118, 76)
-    belly = (222, 178, 128)
+    # Wide creature torso / belly (dark)
+    stamp(canvas, cx, 275, 128, 88, fur_lo, 1.0, lit=(-0.2, -0.55))
+    stamp(canvas, cx, 250, 118, 78, fur, 1.0, lit=(-0.3, -0.45))
 
-    # Cylinder with clear left/right rim shading (reads as round at game scale)
-    for y in range(cyl_top, cyl_bot):
-        taper = 1.0 - 0.1 * ((y - cyl_top) / max(1, cyl_bot - cyl_top))
-        rx = max(8, int(cyl_rx * taper))
-        for x in range(cx - rx, cx + rx + 1):
-            u = (x - cx) / max(1, rx)
-            # Stronger Lambert cylinder: dark edges, bright front-left
-            lit = 0.25 + 0.75 * max(0.0, 0.85 * np.sqrt(max(0.0, 1 - u * u)) + 0.15 * (-u))
-            base = belly if abs(u) < 0.32 else fur
-            depth = (y - cyl_top) / max(1, cyl_bot - cyl_top)
-            base = shade(base, -0.3 * depth)
-            r, g, b = shade(base, lit - 0.55)
-            n = ((x * 17 + y * 31) % 9) - 4
-            r = int(np.clip(r + n, 0, 255))
-            g = int(np.clip(g + n // 2, 0, 255))
-            b = int(np.clip(b + n // 3, 0, 255))
-            edge = 1.0 if abs(u) < 0.9 else max(0.0, 1.0 - (abs(u) - 0.9) / 0.1)
-            a = int(255 * edge)
-            if a > 0:
-                px[x, y] = (r, g, b, a)
+    # Big rounded shoulders (reads as arms/creature, not peg)
+    stamp(canvas, cx - 95, 240, 58, 62, fur_mid, 1.0, lit=(-0.6, -0.2))
+    stamp(canvas, cx + 95, 240, 58, 62, fur_mid, 1.0, lit=(-0.15, -0.2))
+    # Shoulder tops highlight
+    stamp(canvas, cx - 88, 220, 40, 28, shade(fur_hi, -0.05), 0.7, lit=(-0.5, -0.6))
+    stamp(canvas, cx + 88, 220, 40, 28, shade(fur_hi, -0.05), 0.7, lit=(-0.2, -0.6))
 
-    # Spherical head — clearly round
-    for y in range(head_cy - head_ry, head_cy + head_ry + 1):
-        for x in range(cx - head_rx, cx + head_rx + 1):
-            u = (x - cx) / head_rx
-            v = (y - head_cy) / head_ry
-            d2 = u * u + v * v
-            if d2 > 1.0:
-                continue
-            z = np.sqrt(max(0.0, 1.0 - d2))
-            lit = 0.2 + 0.8 * max(0.0, 0.5 * (-u) + 0.35 * (-v) + 0.65 * z)
-            base = shade(fur, -0.25) if v > 0.4 else fur
-            r, g, b = shade(base, lit - 0.5)
-            n = ((x * 13 + y * 19) % 9) - 4
-            r = int(np.clip(r + n, 0, 255))
-            g = int(np.clip(g + n // 2, 0, 255))
-            b = int(np.clip(b + n // 3, 0, 255))
-            edge = 1.0 if d2 < 0.86 else max(0.0, 1.0 - (d2 - 0.86) / 0.14)
-            a = int(255 * edge)
-            if a <= 0:
-                continue
-            prev = px[x, y]
-            if prev[3] > 180 and y > head_cy + 18:
-                t = 0.4
-                px[x, y] = (
-                    int(prev[0] * (1 - t) + r * t),
-                    int(prev[1] * (1 - t) + g * t),
-                    int(prev[2] * (1 - t) + b * t),
-                    255,
-                )
-            else:
-                px[x, y] = (r, g, b, a)
+    # Folded paws
+    stamp(canvas, cx - 40, 295, 24, 16, shade(fur, -0.15), 0.95)
+    stamp(canvas, cx + 40, 295, 24, 16, shade(fur, -0.15), 0.95)
 
-    # Specular on head
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    od.ellipse((cx - 40, head_cy - 48, cx - 4, head_cy - 12), fill=(255, 235, 200, 70))
-    img = Image.alpha_composite(img, overlay.filter(ImageFilter.GaussianBlur(3)))
+    # Neck
+    stamp(canvas, cx, 188, 72, 40, fur, 1.0, lit=(-0.35, -0.35))
 
-    # Face plate (subtle) — where the photo decal sits
-    plate = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    pd = ImageDraw.Draw(plate)
-    pd.ellipse((cx - 54, head_cy - 42, cx + 54, head_cy + 50), fill=(80, 48, 30, 40))
-    img = Image.alpha_composite(img, plate)
+    # Blank fur HEAD dome
+    head_cy, head_rx, head_ry = 122.0, 112.0, 108.0
+    stamp(canvas, cx, head_cy, head_rx, head_ry, fur_hi, 1.0, lit=(-0.48, -0.4))
+    # Cheek fluff outside head (creature silhouette)
+    stamp(canvas, cx - 88, head_cy + 36, 40, 40, fur, 0.9, lit=(-0.55, -0.1))
+    stamp(canvas, cx + 88, head_cy + 36, 40, 40, fur, 0.9, lit=(-0.15, -0.1))
+    # Soft crown
+    stamp(canvas, cx - 14, head_cy - 34, 40, 30, shade(fur_hi, 0.15), 0.5, lit=(-0.2, -0.7))
 
-    # Contact shadow at feet
-    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow)
-    sd.ellipse((cx - 68, cyl_bot - 16, cx + 68, cyl_bot + 12), fill=(15, 8, 4, 120))
-    img = Image.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(7)), img)
+    a = canvas.copy()
+    solid = a[:, :, 3] > 35
+    a[solid, 3] = 255
+
+    # Crush any light pixels to dark fur
+    rgb = a[:, :, :3]
+    light = (rgb[:, :, 0] > 140) & solid
+    for i, t in enumerate(fur_lo):
+        a[light, i] = a[light, i] * 0.35 + t * 0.65
+
+    img = Image.fromarray(a.astype(np.uint8), "RGBA")
+
+    # Soft bottom fringe only
+    arr = np.array(img)
+    for i in range(20):
+        y = H - 20 + i
+        arr[y, :, 3] = (arr[y, :, 3].astype(np.float32) * (1.0 - i / 20.0 * 0.7)).astype(
+            np.uint8
+        )
+    keep = arr[:, :, 3] > 180
+    arr[keep, 3] = 255
+    img = Image.fromarray(arr, "RGBA")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     img.save(OUT)
+    prev = Image.new("RGB", (W, H), (18, 10, 6))
+    prev.paste(img, (0, 0), img)
+    prev.save(Path(r"C:\Users\user\Documents\whack-a-name\_mole_body_preview.png"))
     print("wrote", OUT, img.size)
 
 

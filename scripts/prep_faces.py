@@ -1,7 +1,4 @@
-"""Prep tight circular face decals for mole-head textures (no hats).
-
-Hats are a separate layer on the mole character stack in PlayScene.
-"""
+"""Tight circular face decals — face only, minimal neck/shirt (no light paddle)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,18 +48,22 @@ def prep_one(src: Path) -> Image.Image:
     raw = erode_frame_ring_fast(strip_bg(Image.open(src)))
     arr0 = np.array(raw)
     x0, y0, x1, y1 = opaque_bbox(arr0)
-    pad = 3
-    crop = raw.crop((x0 + pad, y0 + pad, x1 + 1 - pad, y1 + 1 - pad))
+    # Bias crop upward — keep crown/face, drop shirt collar (reads as paddle)
+    h = y1 - y0 + 1
+    # Keep face/crown only — neck/collar reads as a light "paddle" under the head
+    y1 = y0 + int(h * 0.74)
+    pad = 2
+    crop = raw.crop((x0 + pad, y0 + pad, x1 + 1 - pad, y1 + 1))
 
-    # Fill almost the full disc — face is a head decal on the mole body.
     cw, ch = crop.size
-    scale = min((SIZE * 0.96) / max(cw, 1), (SIZE * 0.96) / max(ch, 1))
+    scale = min((SIZE * 0.94) / max(cw, 1), (SIZE * 0.94) / max(ch, 1))
     nw = max(1, int(round(cw * scale)))
     nh = max(1, int(round(ch * scale)))
     face = crop.resize((nw, nh), Image.Resampling.LANCZOS)
 
     paste_x = (SIZE - nw) // 2
-    paste_y = (SIZE - nh) // 2
+    # Seat slightly high in the disc so chin isn't a light bar at the bottom
+    paste_y = max(4, (SIZE - nh) // 2 - 8)
 
     canvas = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     canvas.alpha_composite(face, (paste_x, paste_y))
@@ -76,6 +77,12 @@ def prep_one(src: Path) -> Image.Image:
     out[:, :, 3] = np.where(m > 127, out[:, :, 3], 0)
     keep = (m > 127) & (out[:, :, 3] > 40)
     out[keep, 3] = 255
+
+    # Soft fade only at the very bottom edge (don't bisect the face)
+    yy = np.arange(SIZE).reshape(-1, 1)
+    fade = np.clip((SIZE * 0.94 - yy) / (SIZE * 0.12), 0, 1)
+    out[:, :, 3] = (out[:, :, 3].astype(np.float32) * fade).astype(np.uint8)
+
     return Image.fromarray(out, "RGBA")
 
 
@@ -87,7 +94,6 @@ def main() -> None:
         out = prep_one(src)
         out.save(BACKUP / src.name)
         out.save(NO_HAT / src.name)
-        # Game loads faces/ as head decals (hat is a separate rig layer).
         out.save(FACES / src.name)
         a = np.array(out)
         ys = np.where(a[:, :, 3] > 40)[0]

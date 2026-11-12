@@ -30,6 +30,8 @@ export class BootScene extends Phaser.Scene {
     // Mole character art — body + hat are rig layers; faces are head decals
     const bust = `v=${Date.now()}`
     this.load.image('mole_body', `assets/art/mole_body.png?${bust}`)
+    this.load.image('hole_rim', `assets/art/hole_rim.png?${bust}`)
+    this.load.image('board_lid', `assets/art/board_lid.png?${bust}`)
     this.load.image('party_hat', `assets/art/party_hat_rig.png?${bust}`)
 
     const faceFiles: Record<string, string> = {

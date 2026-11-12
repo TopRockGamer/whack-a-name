@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { PERSON, isPoseMode } from '../config'
+import { PERSON, isPoseMode, isPopProofMode, isBodyOnlyMode } from '../config'
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -7,7 +7,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
-    if (isPoseMode()) {
+    if (isPoseMode() || isPopProofMode() || isBodyOnlyMode()) {
       this.scene.start('play')
       return
     }
