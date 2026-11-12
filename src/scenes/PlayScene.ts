@@ -180,9 +180,12 @@ export class PlayScene extends Phaser.Scene {
     const maskDef = HOLE_MASK[hole.row]
     const maskW = maskDef.w * hole.scale
     const maskH = maskDef.h * hole.scale
-    const maskGfx = this.make.graphics({ x: 0, y: 0 })
+    // add:false — never put mask graphics on the display list (a visible
+    // ellipse reads as a grey void slab and makes baked hats look floating).
+    const maskGfx = this.make.graphics({ x: 0, y: 0, add: false })
     maskGfx.fillStyle(0xffffff)
-    maskGfx.fillEllipse(hole.x, hole.y - 4, maskW, maskH)
+    const maskY = hole.row === 'front' ? hole.y + 6 : hole.y + 2
+    maskGfx.fillEllipse(hole.x, maskY, maskW, maskH)
     face.setMask(maskGfx.createGeometryMask())
 
     const startY = hold ? hole.y + layout.visibleY : hole.y + layout.hiddenY

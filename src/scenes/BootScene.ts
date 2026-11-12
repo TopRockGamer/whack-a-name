@@ -27,20 +27,20 @@ export class BootScene extends Phaser.Scene {
     this.load.image('star_burst', 'assets/art/star_burst.png')
     this.load.image('confetti', 'assets/art/confetti_sheet.png')
 
-    const faceFiles = [
-      'face_01_surprised.png',
-      'face_02_smiling_cap.png',
-      'face_03_serious.png',
-      'face_04_looking_down.png',
-      'face_05_cat_face.png',
-      'face_06_smirking.png',
-      'face_07_backwards_cap.png',
-      'face_08_wet_hair.png',
-    ]
+    const faceFiles: Record<string, string> = {
+      face_01: 'face_01_surprised.png',
+      face_02: 'face_02_smiling_cap.png',
+      face_03: 'face_03_serious.png',
+      face_04: 'face_04_looking_down.png',
+      face_05: 'face_05_cat_face.png',
+      face_06: 'face_06_smirking.png',
+      face_07: 'face_07_backwards_cap.png',
+      face_08: 'face_08_wet_hair.png',
+    }
     // Cache-bust so baked-hat face PNGs always reload after art passes
     const bust = `v=${Date.now()}`
-    FACE_KEYS.forEach((key, i) => {
-      this.load.image(key, `assets/faces/${faceFiles[i]}?${bust}`)
+    FACE_KEYS.forEach((key) => {
+      this.load.image(key, `assets/faces/${faceFiles[key]}?${bust}`)
     })
   }
 

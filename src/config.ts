@@ -50,8 +50,9 @@ export const HOLES: HoleDef[] = [
  * cannot float as a separate sprite.
  */
 export const ROW_LAYOUT = {
-  back: { facePx: 108, hiddenY: 48, visibleY: -6 },
-  front: { facePx: 126, hiddenY: 58, visibleY: -8 },
+  // Slightly larger so crown hair under brim reads; keep tips below wood plank.
+  back: { facePx: 70, hiddenY: 36, visibleY: 7 },
+  front: { facePx: 86, hiddenY: 44, visibleY: 16 },
 } as const
 
 /** @deprecated Hats are baked onto faces; kept for reference / ChatGPT notes */
@@ -65,10 +66,10 @@ export const HAT_LAYOUT = {
   note: 'baked into face PNGs — PlayScene no longer spawns a separate hat',
 } as const
 
-/** Hole-mask ellipse — tall enough that baked hat+crown stay one unit (not split onto wood) */
+/** Hole-mask ellipse — match painted void; do not spill hats onto wood */
 export const HOLE_MASK = {
-  back: { w: 100, h: 92 },
-  front: { w: 118, h: 108 },
+  back: { w: 100, h: 56 },
+  front: { w: 112, h: 70 },
 } as const
 
 /** ?pose=1 — hold every mole up for screenshot QA (read live, not import-time) */
@@ -82,11 +83,11 @@ export const POSE_MODE = false
 
 export const FACE_KEYS = [
   'face_01',
-  'face_02',
+  'face_08', // was face_02 (pre-existing cap fought the party-hat seat)
   'face_03',
   'face_04',
   'face_05',
   'face_06',
   'face_07',
-  'face_08',
+  'face_02',
 ] as const
