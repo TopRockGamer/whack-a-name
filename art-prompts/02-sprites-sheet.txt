@@ -1,0 +1,15 @@
+Great direction — locking that palette and the riveted hole rims.
+
+Please GENERATE the next image now as a single sprite sheet on a flat MAGENTA (#FF00FF) background (for easy knockout). No shadows on the magenta. Gift-quality painted illustration matching the backdrop we just made.
+
+Layout in one 16:9 image, clearly separated items with labels in tiny text under each:
+
+1) HOLE FRAME — circular wood rim with small rivets, empty center (transparent intent / magenta showing through the hole), ~512px
+2) HOLE VOID — soft dark elliptical recess #1A120C with inner shadow, ~512px  
+3) PARTY HAT — teal #2A9D8F cone hat with mustard stripe and tiny pom-pom, 3/4 view, ~256px
+4) MALLET FRAMES — three poses side by side of the same chunky carnival wooden mallet: raised, mid-swing, impact. Matching handle/head.
+5) BANNER — cream carnival name banner with red scalloped trim, blank center for text overlay, wide
+6) STAR BURST — small gold/mustard impact stars for a bonk hit
+7) CONFETTI — a few loose teal/red/mustard paper bits
+
+Style: same outline weight and lighting as the fairground backdrop. No faces. Magenta everywhere that should be transparent.

@@ -1,0 +1,11 @@
+Please GENERATE a clean final game backdrop now (no labels, no Edit UI, no text, no watermark).
+
+16:9 landscape illustration for Phaser:
+- Same fairground birthday stall look we locked (cream/red striped awning OR bunting + warm lights, honey wood table, red/cream striped skirt)
+- Exactly 6 circular holes with riveted wood rims, 2 rows of 3, evenly spaced, dark interiors empty
+- Balloons + gift accents OK
+- Soft confetti
+- Full-bleed usable as game background — leave the upper center clear enough for a name banner overlay
+- Painterly gift-quality, matching our palette
+
+One image only. When done, I’ll use it as backdrop.png.

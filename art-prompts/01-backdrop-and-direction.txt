@@ -1,0 +1,31 @@
+You are my peer art director for a polished browser birthday gift game called Whack-a-Name (personalised whack-a-mole). Fairground / birthday stall vibe. Warm, gift-quality, NOT programmer art.
+
+LOCKED LOOK:
+- Striped carnival awning (cream + deep red, maybe mustard accents)
+- Warm wood table with 6 neat circular holes (dark insides)
+- Soft ground shadow under the table
+- Confetti idle energy
+- Party-hat overlays for popping faces
+- Nice wooden carnival mallet (2-3 swing frames)
+- Printed banner for the birthday name
+NO pink rectangles, stick trees, flat navy slabs, or cheap clipart.
+
+PALETTE proposal — please refine if needed:
+- Awning: #F5E6C8 cream / #B22222 carnival red / #D4A017 mustard
+- Wood: #6B3F24 / #8B5A2B
+- Hole void: #1A120C
+- Accents: teal #2A9D8F for party hats + confetti pops
+
+TASK 1 — Art direction reply (short): confirm/refine palette, hole-frame style, mallet silhouette, and backdrop composition for a 16:9 game canvas.
+
+TASK 2 — GENERATE IMAGE now:
+Create a single 16:9 game backdrop illustration for a birthday fairground stall:
+- Cream/red striped awning across the top
+- Warm painted wood whack-a-mole table filling lower 55% with exactly 6 circular holes in 2 rows (3 front, 3 back), dark hole interiors, neat wood rims
+- Soft bunting / birthday lights under awning
+- Subtle confetti on floor, warm ambient light
+- Empty holes (no faces yet), no UI chrome, no text, no watermark
+- Painterly illustrated style, coherent outline weight, gift-quality
+- Aspect 16:9, suitable as Phaser game background
+
+Generate the image. After it finishes I will ask for hole-frame, hats, and mallet sprite sheets next.
